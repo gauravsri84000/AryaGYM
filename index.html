@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARYAGYM</title>
+    <title>ARYAGYM Member Manager</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -19,8 +19,8 @@
                     <i class="fa-solid fa-dumbbell"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-extrabold tracking-wider text-white">ARYAGYM <span class="text-amber-500 text-xs uppercase px-2 py-0.5 bg-amber-500/10 rounded-full border border-amber-500/20">FITNESS</span></h1>
-                    <p class="text-xs text-slate-400">First Floor, Sudershan Park, A/183, near Varma nursing homes, A Block, Block F, Sudershan Park, New Delhi, Delhi, 110015</p>
+                    <h1 class="text-xl font-extrabold tracking-wider text-white">ARYAGYM <span class="text-amber-500 text-xs uppercase px-2 py-0.5 bg-amber-500/10 rounded-full border border-amber-500/20">Manager</span></h1>
+                    <p class="text-xs text-slate-400">Gym Admission & Fee Reminder Portal</p>
                 </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap justify-end">
@@ -336,7 +336,7 @@
                     </td>
                     <td class="p-3.5 text-center">
                         <div class="flex items-center justify-center gap-2">
-                            <button onclick="sendReminder(${m.id})" title="Send WhatsApp Fee Reminder" class="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 p-2 rounded-xl text-xs transition">
+                            <button onclick="sendWhatsAppReminder(${m.id})" title="Send WhatsApp Fee Reminder" class="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 p-2 rounded-xl text-xs transition">
                                 <i class="fa-brands fa-whatsapp"></i>
                             </button>
                             <button onclick="renewFee(${m.id})" title="Renew Membership" class="bg-amber-500/20 hover:bg-amber-500/40 text-amber-400 border border-amber-500/30 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition">
@@ -403,7 +403,7 @@
                         <p class="text-[11px] text-slate-400 mt-1">Joined: ${m.joiningDate} | Expired On: <span class="text-amber-400 font-semibold">${m.expiryDate}</span></p>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="sendReminder(${m.id})" class="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                        <button onclick="sendWhatsAppReminder(${m.id})" class="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
                             <i class="fa-brands fa-whatsapp mr-1"></i> Remind
                         </button>
                         <button onclick="removeMember(${m.id})" class="bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
@@ -415,12 +415,19 @@
             });
         }
 
-        // Send Fee Reminder Simulation
-        function sendReminder(id) {
+        // Direct WhatsApp Message Sender
+        function sendWhatsAppReminder(id) {
             const member = members.find(m => m.id === id);
             if (member) {
                 const dueInfo = getMemberDueDetails(member);
-                showToast(`WhatsApp Reminder sent to ${member.name}: ₹${dueInfo.dueAmount} (${dueInfo.monthsDue} Months Due)!`);
+                const amountToPay = dueInfo.isDue ? dueInfo.dueAmount : member.amount;
+                const monthsCount = dueInfo.isDue ? dueInfo.monthsDue : member.planMonths;
+
+                const message = `Hello ${member.name}, your ARYAGYM membership fee of ₹${amountToPay} for ${monthsCount} month(s) is pending. Please clear your dues at the earliest. Thank you! - ARYAGYM`;
+                const encodedMessage = encodeURIComponent(message);
+                const whatsappUrl = `https://wa.me/91${member.phone}?text=${encodedMessage}`;
+                
+                window.open(whatsappUrl, '_blank');
             }
         }
 
