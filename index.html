@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PowerGym Member Manager</title>
+    <title>ARYAGYM</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -63,12 +63,12 @@
                         class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500 transition">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Membership Plan</label>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Membership Plan & Fees</label>
                     <select id="membershipPlan" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500 transition">
-                        <option value="1">1 Month Plan</option>
-                        <option value="3">3 Months Plan</option>
-                        <option value="6">6 Months Plan</option>
-                        <option value="12">1 Year Plan</option>
+                        <option value="1">1 Month Plan - ₹800</option>
+                        <option value="3">3 Months Plan - ₹2,000</option>
+                        <option value="6">6 Months Plan - ₹3,800</option>
+                        <option value="12">1 Year Plan - ₹7,000</option>
                     </select>
                 </div>
                 <div>
@@ -94,7 +94,7 @@
                     </select>
                 </div>
                 <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200 mt-2">
-                    <i class="fa-solid fa-check mr-2"></i> Add Member
+                    <i class="fa-solid fa-check mr-2"></i> Adherent Member
                 </button>
             </form>
         </section>
@@ -113,8 +113,8 @@
                     <h3 id="statActive" class="text-2xl font-black text-emerald-400 mt-1">0</h3>
                 </div>
                 <div class="bg-slate-900 border border-slate-700 p-4 rounded-xl">
-                    <p class="text-xs text-slate-400 uppercase font-semibold">Fee Pending / Due</p>
-                    <h3 id="statDue" class="text-2xl font-black text-amber-400 mt-1">0</h3>
+                    <p class="text-xs text-slate-400 uppercase font-semibold">Total Dues Pending</p>
+                    <h3 id="statDue" class="text-2xl font-black text-amber-400 mt-1">₹0</h3>
                 </div>
             </div>
 
@@ -143,7 +143,7 @@
                         <tr class="bg-slate-800/80 border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider">
                             <th class="p-3.5">Member Details</th>
                             <th class="p-3.5">Timing & Plan</th>
-                            <th class="p-3.5">Fee Status / Due Date</th>
+                            <th class="p-3.5">Dates & Due Status</th>
                             <th class="p-3.5 text-center">Actions</th>
                         </tr>
                     </thead>
@@ -173,7 +173,7 @@
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <p class="text-xs text-slate-400 mb-4">Ye list un members ki hai jinki membership fees due ho chuki hai. Aap yahan se remind kar sakte hain ya removal action le sakte hain.</p>
+            <p class="text-xs text-slate-400 mb-4">Ye list un members ki hai jinki membership fees due ho chuki hai. Joining aur Expiry dates ke sath kitne mahine ka due hai yahan show ho raha hai.</p>
             <div class="overflow-y-auto flex-1 divide-y divide-slate-700/50 bg-slate-900 rounded-xl border border-slate-700 p-4" id="modalRemissionList">
                 <!-- Dynamic alerts -->
             </div>
@@ -194,14 +194,59 @@
         // Set default date to today
         document.getElementById('joiningDate').valueAsDate = new Date();
 
+        // Pricing lookup dictionary
+        const planPricing = {
+            "1": { name: "1 Month", amount: 800 },
+            "3": { name: "3 Months", amount: 2000 },
+            "6": { name: "6 Months", amount: 3800 },
+            "12": { name: "1 Year", amount: 7000 }
+        };
+
         // LocalStorage database retrieval
-        let members = JSON.parse(localStorage.getItem('gym_members_db')) || [];
+        let members = JSON.parse(localStorage.getItem('aryagym_members_db')) || [];
 
         function saveAndRefresh() {
-            localStorage.setItem('gym_members_db', JSON.stringify(members));
+            localStorage.setItem('aryagym_members_db', JSON.stringify(members));
             renderMembers();
             updateStats();
             updateRemissionBadge();
+        }
+
+        // Calculate dynamic due months & amount based on today's date
+        function getMemberDueDetails(m) {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const expiry = new Date(m.expiryDate);
+            expiry.setHours(0,0,0,0);
+
+            if (today <= expiry) {
+                return { isDue: false, monthsDue: 0, dueAmount: 0 };
+            }
+
+            // Calculate total months elapsed from joining date to today
+            const jDate = new Date(m.joiningDate);
+            let years = today.getFullYear() - jDate.getFullYear();
+            let months = today.getMonth() - jDate.getMonth();
+            let totalMonths = years * 12 + months;
+            
+            if (today.getDate() < jDate.getDate()) {
+                totalMonths -= 1;
+            }
+
+            const planMonthsInt = parseInt(m.planMonths);
+            if (totalMonths < planMonthsInt) {
+                totalMonths = planMonthsInt;
+            }
+
+            // Monthly rate calculation based on plan package
+            const monthlyRate = m.amount / planMonthsInt;
+            const dueAmount = Math.round(totalMonths * monthlyRate);
+
+            return {
+                isDue: true,
+                monthsDue: totalMonths,
+                dueAmount: dueAmount
+            };
         }
 
         // Handle Member Admission
@@ -210,13 +255,16 @@
             const name = document.getElementById('memberName').value.trim();
             const phone = document.getElementById('memberPhone').value.trim();
             const joiningDate = document.getElementById('joiningDate').value;
-            const planMonths = parseInt(document.getElementById('membershipPlan').value);
+            const planMonths = document.getElementById('membershipPlan').value;
             const timing = document.getElementById('gymTiming').value;
 
             // Calculate Fee Expiry Date
+            const monthsCount = parseInt(planMonths);
             const jDate = new Date(joiningDate);
-            jDate.setMonth(jDate.getMonth() + planMonths);
+            jDate.setMonth(jDate.getMonth() + monthsCount);
             const expiryDate = jDate.toISOString().split('T')[0];
+
+            const planDetails = planPricing[planMonths];
 
             const newMember = {
                 id: Date.now(),
@@ -224,6 +272,8 @@
                 phone,
                 joiningDate,
                 planMonths,
+                planName: planDetails.name,
+                amount: planDetails.amount,
                 expiryDate,
                 timing
             };
@@ -240,16 +290,15 @@
             const tbody = document.getElementById('membersTableBody');
             const searchVal = document.getElementById('searchInput').value.toLowerCase();
             const statusFilter = document.getElementById('filterStatus').value;
-            const todayStr = new Date().toISOString().split('T')[0];
 
             tbody.innerHTML = '';
 
             const filtered = members.filter(m => {
                 const matchesSearch = m.name.toLowerCase().includes(searchVal) || m.phone.includes(searchVal);
-                const isDue = m.expiryDate < todayStr;
+                const dueInfo = getMemberDueDetails(m);
                 
-                if (statusFilter === 'ACTIVE' && isDue) return false;
-                if (statusFilter === 'DUE' && !isDue) return false;
+                if (statusFilter === 'ACTIVE' && dueInfo.isDue) return false;
+                if (statusFilter === 'DUE' && !dueInfo.isDue) return false;
                 return matchesSearch;
             });
 
@@ -259,10 +308,14 @@
             }
 
             filtered.forEach(m => {
-                const isDue = m.expiryDate < todayStr;
-                const statusBadge = isDue 
+                const dueInfo = getMemberDueDetails(m);
+                const statusBadge = dueInfo.isDue 
                     ? `<span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs px-2.5 py-1 rounded-full font-semibold">Fee Due</span>`
                     : `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-full font-semibold">Active</span>`;
+
+                const dueText = dueInfo.isDue 
+                    ? `<div class="text-xs text-amber-400 mt-1 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Due: ₹${dueInfo.dueAmount} (${dueInfo.monthsDue} Months)</div>`
+                    : `<div class="text-xs text-emerald-400 mt-1 font-semibold"><i class="fa-solid fa-circle-check mr-1"></i>Paid & Active</div>`;
 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-800/40 transition";
@@ -273,11 +326,13 @@
                     </td>
                     <td class="p-3.5">
                         <div class="text-xs font-semibold text-slate-300"><i class="fa-regular fa-clock text-amber-400 mr-1"></i>${m.timing}</div>
-                        <div class="text-[11px] text-slate-500 mt-0.5">Plan: ${m.planMonths} Month(s) | Sun Off</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">Package: <span class="text-amber-400 font-semibold">${m.planName}</span> | Sun Off</div>
                     </td>
                     <td class="p-3.5">
                         <div>${statusBadge}</div>
-                        <div class="text-xs text-slate-400 mt-1">Exp: <span class="${isDue ? 'text-amber-400 font-bold' : ''}">${m.expiryDate}</span></div>
+                        <div class="text-[11px] text-slate-300 mt-1"><strong class="text-slate-400">Join:</strong> ${m.joiningDate}</div>
+                        <div class="text-[11px] text-slate-300"><strong class="text-slate-400">Exp:</strong> <span class="${dueInfo.isDue ? 'text-amber-400 font-bold' : ''}">${m.expiryDate}</span></div>
+                        ${dueText}
                     </td>
                     <td class="p-3.5 text-center">
                         <div class="flex items-center justify-center gap-2">
@@ -299,37 +354,53 @@
 
         // Update Statistics Counters
         function updateStats() {
-            const todayStr = new Date().toISOString().split('T')[0];
             const total = members.length;
-            const dueCount = members.filter(m => m.expiryDate < todayStr).length;
+            let dueCount = 0;
+            let totalDueAmount = 0;
+
+            members.forEach(m => {
+                const dueInfo = getMemberDueDetails(m);
+                if (dueInfo.isDue) {
+                    dueCount++;
+                    totalDueAmount += dueInfo.dueAmount;
+                }
+            });
+
             const activeCount = total - dueCount;
 
             document.getElementById('statTotal').innerText = total;
             document.getElementById('statActive').innerText = activeCount;
-            document.getElementById('statDue').innerText = dueCount;
+            document.getElementById('statDue').innerText = `₹${totalDueAmount}`;
         }
 
         // Update Owner Remission Badge & Modal Content
         function updateRemissionBadge() {
-            const todayStr = new Date().toISOString().split('T')[0];
-            const dueMembers = members.filter(m => m.expiryDate < todayStr);
-            document.getElementById('pendingBadge').innerText = dueMembers.length;
+            let dueMembersList = [];
+            members.forEach(m => {
+                const dueInfo = getMemberDueDetails(m);
+                if (dueInfo.isDue) {
+                    dueMembersList.push({ ...m, ...dueInfo });
+                }
+            });
+
+            document.getElementById('pendingBadge').innerText = dueMembersList.length;
 
             const modalList = document.getElementById('modalRemissionList');
             modalList.innerHTML = '';
 
-            if (dueMembers.length === 0) {
+            if (dueMembersList.length === 0) {
                 modalList.innerHTML = `<div class="text-center text-slate-500 py-6 text-sm">Great! No pending membership dues right now.</div>`;
                 return;
             }
 
-            dueMembers.forEach(m => {
+            dueMembersList.forEach(m => {
                 const item = document.createElement('div');
-                item.className = "py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3";
+                item.className = "py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-700/40 last:border-0";
                 item.innerHTML = `
                     <div>
                         <h4 class="font-bold text-white text-sm">${m.name} <span class="text-xs text-slate-400 font-normal">(+91 ${m.phone})</span></h4>
-                        <p class="text-xs text-amber-400 mt-0.5"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Fee Expired On: ${m.expiryDate}</p>
+                        <p class="text-xs text-amber-400 mt-0.5"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Plan: ${m.planName} | <strong>${m.monthsDue} Months Due</strong> | Total: <strong class="text-white">₹${m.dueAmount}</strong></p>
+                        <p class="text-[11px] text-slate-400 mt-1">Joined: ${m.joiningDate} | Expired On: <span class="text-amber-400 font-semibold">${m.expiryDate}</span></p>
                     </div>
                     <div class="flex gap-2">
                         <button onclick="sendReminder(${m.id})" class="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
@@ -348,7 +419,8 @@
         function sendReminder(id) {
             const member = members.find(m => m.id === id);
             if (member) {
-                showToast(`Fee reminder sent successfully to ${member.name} (+91 ${member.phone})!`);
+                const dueInfo = getMemberDueDetails(member);
+                showToast(`WhatsApp Reminder sent to ${member.name}: ₹${dueInfo.dueAmount} (${dueInfo.monthsDue} Months Due)!`);
             }
         }
 
@@ -359,8 +431,9 @@
                 const today = new Date();
                 member.joiningDate = today.toISOString().split('T')[0];
                 
+                const monthsCount = parseInt(member.planMonths);
                 const jDate = new Date(member.joiningDate);
-                jDate.setMonth(jDate.getMonth() + member.planMonths);
+                jDate.setMonth(jDate.getMonth() + monthsCount);
                 member.expiryDate = jDate.toISOString().split('T')[0];
 
                 saveAndRefresh();
@@ -384,7 +457,7 @@
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(members, null, 2));
             const downloadAnchor = document.createElement('a');
             downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", "gym_members_backup.json");
+            downloadAnchor.setAttribute("download", "aryagym_members_backup.json");
             document.body.appendChild(downloadAnchor);
             downloadAnchor.click();
             downloadAnchor.remove();
